@@ -1,16 +1,20 @@
 /**
- * MANTENDO A POO NO FRONTEND (ABSTRAÇÃO)
+ * MANTENDO A POO NO FRONTEND
+ * ABSTRAÇÃO
  */
 
 class Produto {
+
     #preco;
     #quantidade;
 
     constructor(nome, preco, quantidade) {
+
         if (!nome || preco <= 0 || quantidade <= 0) {
             throw new Error("Dados inválidos para o produto");
         }
 
+        this.id = null;
         this.nome = nome;
         this.#preco = parseFloat(preco);
         this.#quantidade = parseInt(quantidade);
@@ -28,59 +32,99 @@ class Produto {
         return this.#preco * this.#quantidade;
     }
 
-    // Método toJSON
     toJSON() {
+
         return {
             nome: this.nome,
             preco: this.#preco,
             quantidade: this.#quantidade
         };
+
     }
 }
 
-// URL da API
-const API_URL = "http://localhost:3000/produtos";
+// ==============================
+// URL DA API
+// ==============================
 
+const API_URL = "/produtos";
+
+// ==============================
 // ADICIONAR PRODUTO
-document.getElementById("produto-form").addEventListener("submit", async function (e) {
-    e.preventDefault();
+// ==============================
 
-    const nome = document.getElementById("nome").value;
-    const preco = document.getElementById("preco").value;
-    const quantidade = document.getElementById("quantidade").value;
+document
+    .getElementById("produto-form")
+    .addEventListener("submit", async function (e) {
 
-    try {
-        const novoProduto = new Produto(nome, preco, quantidade);
+        e.preventDefault();
 
-        const resposta = await fetch(API_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(novoProduto.toJSON())
-        });
+        const nome = document.getElementById("nome").value;
+        const preco = document.getElementById("preco").value;
+        const quantidade = document.getElementById("quantidade").value;
 
-        if (!resposta.ok) {
-            throw new Error("Erro ao salvar o produto no servidor.");
+        try {
+
+            const novoProduto = new Produto(
+                nome,
+                preco,
+                quantidade
+            );
+
+            const resposta = await fetch(API_URL, {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify(
+                    novoProduto.toJSON()
+                )
+
+            });
+
+            if (!resposta.ok) {
+
+                const erro = await resposta.json();
+
+                throw new Error(
+                    erro.erro || "Erro ao salvar o produto no servidor."
+                );
+            }
+
+            e.target.reset();
+
+            await renderizarTabela();
+
+        } catch (erro) {
+
+            alert(erro.message);
+
         }
 
-        renderizarTabela();
-        e.target.reset();
+    });
 
-    } catch (erro) {
-        alert(erro.message);
-    }
-});
-
-
+// ==============================
 // BUSCAR PRODUTOS
+// ==============================
+
 async function renderizarTabela() {
+
     try {
 
         const resposta = await fetch(API_URL);
-        const dadosBrutosDoServidor = await resposta.json();
 
-        const tabela = document.querySelector("#tabela-produtos tbody");
+        if (!resposta.ok) {
+            throw new Error("Erro ao buscar produtos.");
+        }
+
+        const dadosBrutosDoServidor =
+            await resposta.json();
+
+        const tabela =
+            document.querySelector("#tabela-produtos tbody");
 
         tabela.innerHTML = "";
 
@@ -94,38 +138,63 @@ async function renderizarTabela() {
                 dados.quantidade
             );
 
+            produto.id = dados.id;
+
             totalAcumulado += produto.valorTotal();
 
             const row = document.createElement("tr");
 
             row.innerHTML = `
                 <td>${produto.nome}</td>
-                <td>R$ ${produto.preco.toFixed(2)}</td>
-                <td>${produto.quantidade}</td>
-                <td>R$ ${produto.valorTotal().toFixed(2)}</td>
+
                 <td>
-                    <button 
+                    R$ ${produto.preco.toFixed(2)}
+                </td>
+
+                <td>
+                    ${produto.quantidade}
+                </td>
+
+                <td>
+                    R$ ${produto.valorTotal().toFixed(2)}
+                </td>
+
+                <td>
+
+                    <button
                         class="btn-excluir"
-                        onclick="excluirProduto('${produto.nome}')">
+                        onclick="excluirProduto(${produto.id}, '${produto.nome}')">
+
                         Excluir
+
                     </button>
+
                 </td>
             `;
 
             tabela.appendChild(row);
+
         });
 
         document.getElementById("total-estoque").textContent =
             `Total em estoque: R$ ${totalAcumulado.toFixed(2)}`;
 
     } catch (erro) {
-        console.error("Erro ao buscar dados no servidor:", erro);
+
+        console.error(
+            "Erro ao buscar dados no servidor:",
+            erro
+        );
+
     }
+
 }
 
-
+// ==============================
 // EXCLUIR UM PRODUTO
-async function excluirProduto(nome) {
+// ==============================
+
+async function excluirProduto(id, nome) {
 
     if (!confirm(`Deseja excluir o produto "${nome}"?`)) {
         return;
@@ -134,49 +203,83 @@ async function excluirProduto(nome) {
     try {
 
         const resposta = await fetch(
-            `${API_URL}/${encodeURIComponent(nome)}`,
+            `${API_URL}/${id}`,
             {
                 method: "DELETE"
             }
         );
 
         if (!resposta.ok) {
-            throw new Error("Erro ao excluir produto.");
+
+            const erro = await resposta.json();
+
+            throw new Error(
+                erro.erro || "Erro ao excluir produto."
+            );
         }
 
-        renderizarTabela();
+        await renderizarTabela();
 
     } catch (erro) {
-        console.error("Erro ao excluir produto:", erro);
+
+        console.error(
+            "Erro ao excluir produto:",
+            erro
+        );
+
         alert(erro.message);
+
     }
+
 }
 
-
+// ==============================
 // LIMPAR TODA A TABELA
-document.getElementById("limpar-tabela").addEventListener("click", async function () {
+// ==============================
 
-    if (confirm("Deseja mesmo limpar toda a tabela?")) {
+document
+    .getElementById("limpar-tabela")
+    .addEventListener("click", async function () {
+
+        if (!confirm("Deseja mesmo limpar toda a tabela?")) {
+            return;
+        }
 
         try {
 
-            const resposta = await fetch(API_URL, {
-                method: "DELETE"
-            });
+            const resposta = await fetch(
+                API_URL,
+                {
+                    method: "DELETE"
+                }
+            );
 
             if (!resposta.ok) {
-                throw new Error("Erro ao limpar a tabela.");
+
+                const erro = await resposta.json();
+
+                throw new Error(
+                    erro.erro || "Erro ao limpar a tabela."
+                );
             }
 
-            renderizarTabela();
+            await renderizarTabela();
 
         } catch (erro) {
-            console.error("Erro ao limpar dados:", erro);
+
+            console.error(
+                "Erro ao limpar dados:",
+                erro
+            );
+
             alert(erro.message);
+
         }
-    }
-});
 
+    });
 
-// CARREGA OS DADOS AO ABRIR A PÁGINA
+// ==============================
+// CARREGAR OS DADOS
+// ==============================
+
 renderizarTabela();
